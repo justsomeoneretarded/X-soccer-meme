@@ -189,9 +189,9 @@ def publish(state,cfg,live=False):
     row=rows[0]
     summary={'score':row['total'],'score_bar':MIN_SCORE,'parts':row['parts'],
              'ai':{k:row['verdict'][k] for k in ('virality','reason','provider') if k in row['verdict']} if row['verdict'] else None}
+    post_text = judge.clean_caption(row['text'])
     if row['total']<MIN_SCORE:
-        return {'publishing':'nothing clears the quality bar yet','best_draft':row['text'],'kind':row['kind'],'source_url':row['url'],**summary}
-    post_text = '\n\n'.join(part for part in (row['text'], f"Source: {row['url']}") if part)
+        return {'publishing':'nothing clears the quality bar yet','best_draft':post_text,'kind':row['kind'],'source_url':row['url'],**summary}
     if not live:return {'publishing':'preview','draft':post_text,'kind':row['kind'],'source_url':row['url'],**summary}
     automation.authorization()
     with tempfile.TemporaryDirectory() as d:
@@ -223,9 +223,9 @@ def publish(state,cfg,live=False):
             c.execute('UPDATE publications SET state="posted",post_id=? WHERE story_id=?',(post_id,row['id']))
             c.execute('DELETE FROM meme_queue WHERE story_id=?',(row['id'],))
             c.execute('UPDATE stories SET status="posted" WHERE id=?',(row['id'],))
-            c.execute('INSERT OR REPLACE INTO post_meta VALUES(?,?,?,?,?,?,?)',(row['id'],post_id,row['source'],row['kind'],row['text'],row['total'],app.now()))
+            c.execute('INSERT OR REPLACE INTO post_meta VALUES(?,?,?,?,?,?,?)',(row['id'],post_id,row['source'],row['kind'],post_text,row['total'],app.now()))
         state.checkpoint()
-    return {'publishing':'posted','post_id':post_id,'kind':row['kind'],'caption':row['text'],'source_url':row['url'],'queue_payload_removed':True,'quarantined_uncertain':quarantined,**summary}
+    return {'publishing':'posted','post_id':post_id,'kind':row['kind'],'caption':post_text,'source_url':row['url'],'queue_payload_removed':True,'quarantined_uncertain':quarantined,**summary}
 
 def track_and_learn(limit=10,budget=30):
     """Hourly: read our recent posts' public metrics and update channel/kind weights."""

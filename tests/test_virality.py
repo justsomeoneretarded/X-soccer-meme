@@ -94,7 +94,7 @@ class PublishTests(Case):
     def test_ai_verdict_caption_is_posted_and_declined_memes_skipped(self):
         meme_worker.ingest([self.item(1), self.item(2, views=1100)], self.cfg)
         verdicts = {'caption 1': dict(post=False, virality=2, caption='', reason='not funny', provider='gemini'),
-                    'caption 2': dict(post=True, virality=9, caption='me pretending to work', reason='relatable', provider='gemini')}
+                    'caption 2': dict(post=True, virality=9, caption='me pretending to work\n\nSource: t.me/x/2', reason='relatable', provider='gemini')}
         with patch.dict('os.environ', {'GEMINI_API_KEY': 'k'}), patch('media.read_allowed', return_value=b'\xff\xd8\xff'), \
                 patch('judge.judge', side_effect=lambda image, caption, kind: verdicts[caption]):
             report = meme_worker.judge_top(self.cfg)
@@ -102,7 +102,7 @@ class PublishTests(Case):
         with patch('automation.authorization'), patch('meme_worker.download', return_value=self.asset), \
                 patch('automation.send', return_value='77') as send:
             result = meme_worker.publish(Mock(), self.cfg, True)
-        send.assert_called_once_with('me pretending to work\n\nSource: https://t.me/x/2', image_path=self.asset)
+        send.assert_called_once_with('me pretending to work', image_path=self.asset)
         self.assertEqual(result['ai']['virality'], 9)
         with meme_worker.database() as c:
             self.assertEqual(c.execute('SELECT caption,source FROM post_meta').fetchone()[0], 'me pretending to work')
@@ -165,6 +165,7 @@ class JudgeTests(unittest.TestCase):
 
     def test_caption_rules_enforced_locally(self):
         self.assertEqual(judge.clean_caption('"me at 3am 😭😭 #relatable @someone https://x.co/a"'), 'me at 3am 😭')
+        self.assertEqual(judge.clean_caption('Matchday mood t.me/channel/42'), 'Matchday mood')
         self.assertLessEqual(judge.weight(judge.clean_caption('word '*60)), judge.MAX_CAPTION+1)
 
     def test_busy_gemini_model_moves_to_next_and_sends_image(self):

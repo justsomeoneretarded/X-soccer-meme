@@ -223,7 +223,8 @@ def weight(text):
 
 def clean_caption(text):
     """Enforce caption rules locally: no links/handles/hashtags, one emoji, short."""
-    text = re.sub(r'https?://\S+|www\.\S+', '', text or '')
+    text = re.sub(r'^\s*(?:source|credit|via)\s*:[^\n]*', '', text or '', flags=re.I | re.M)
+    text = re.sub(r'https?://\S+|\b(?:[\w-]+\.)+[a-z]{2,63}\b(?:/[^\s]*)?', '', text, flags=re.I)
     text = re.sub(r'(?<!\w)[@#]\w+', '', text)
     text = re.sub(r'[ \t]+', ' ', text).strip().strip('"“”')
     emoji = re.compile('[\U0001F300-\U0001FAFF☀-➿]')

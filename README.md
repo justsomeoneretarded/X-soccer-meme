@@ -18,8 +18,9 @@ approved photo or video per run.
   The judge rejects unrelated media, plain footage, betting promotions and
   abusive content. Video screening uses a still and caption. Choose feeds
   you trust to supply authorized, suitable full clips and audio.
-- Uses a short original X caption and links to the source. Deduplicates
-  source URLs and exact media bytes. Re-encoded media can match imperfectly.
+- Posts the meme with an optional short original caption. Source URLs are kept
+  in the workflow report and posting history for deduplication. Exact media
+  bytes also deduplicate; re-encoded media can match imperfectly.
 - Saves reservations to this repo's own `autopost-state` branch before
   publishing. Unconfirmed sends are set aside and never automatically retried.
 
