@@ -16,7 +16,11 @@ GEMINI_MODEL = os.environ.get('GEMINI_MODEL') or 'gemini-3.5-flash-lite'
 GEMINI_FALLBACKS = ('gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash')
 GEMINI_TIMEOUT = int(os.environ.get('GEMINI_TIMEOUT', '30'))
 GEMINI_THINKING = ({'thinkingLevel': 'low'}, {'thinkingBudget': 0}, None)
-GROQ_VISION = ('meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct')
+GROQ_VISION = (
+    'qwen/qwen3.8-27b',
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'meta-llama/llama-4-maverick-17b-128e-instruct',
+)
 PROVIDER_ORDER = [p.strip() for p in os.environ.get('AI_PROVIDER_ORDER', 'gemini,groq').split(',') if p.strip()]
 MAX_CAPTION = 80
 
@@ -164,7 +168,7 @@ def gemini(prompt, image):
 def groq_models(key):
     data = _request('https://api.groq.com/openai/v1/models', {'Authorization': 'Bearer '+key}, timeout=20)
     names = [m['id'] for m in data.get('data', []) if m.get('active', True)]
-    vision = [n for n in names if re.search(r'scout|maverick|vision|vl\b|-vl-', n)]
+    vision = [n for n in names if n in GROQ_VISION or re.search(r'vision|vl\b|-vl-', n)]
     return [n for n in GROQ_VISION if n in vision]+[n for n in vision if n not in GROQ_VISION]
 
 

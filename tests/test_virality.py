@@ -184,16 +184,14 @@ class JudgeTests(unittest.TestCase):
     def test_groq_vision_fallback(self):
         def request(url, headers, body=None, timeout=60):
             if url.endswith('/models'):
-                return {'data': [{'id': 'llama-3.3-70b-versatile'}, {'id': 'meta-llama/llama-4-maverick-17b-128e-instruct'}]}
-            if body['model'] == judge.GROQ_VISION[0]:
-                self.fail('An unlisted Groq model was called')
+                return {'data': [{'id': 'llama-3.3-70b-versatile'}, {'id': 'qwen/qwen3.8-27b'}]}
+            self.assertEqual(body['model'], 'qwen/qwen3.8-27b')
             self.assertEqual(body['messages'][1]['content'][1]['type'], 'image_url')
             return {'choices': [{'message': {'content': '{"post": false, "virality": 3, "caption": ""}'}}]}
         with patch.dict('os.environ', {'GEMINI_API_KEY': '', 'GROQ_API_KEY': 'k'}), patch('judge._request', side_effect=request):
             result = judge.judge(b'\x89PNGimg', '')
         self.assertFalse(result['post'])
-        self.assertEqual(judge._groq['model'], 'meta-llama/llama-4-maverick-17b-128e-instruct')
-
+        self.assertEqual(judge._groq['model'], 'qwen/qwen3.8-27b')
 
     def test_groq_without_vision_models_never_calls_chat(self):
         catalogue = {'data': [{'id': 'llama-3.3-70b-versatile'}]}
