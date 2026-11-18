@@ -16,8 +16,12 @@ jobs:
           python-version: '3.12'
       - name: Install collector parser for tests
         run: python -m pip install "$(sed -n '/^beautifulsoup4==/p' requirements.txt)"
-      - name: Check video tools
+      - name: Install video tools when missing
         run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
           ffmpeg -version >/dev/null
           ffprobe -version >/dev/null
       - name: Test without account credentials
