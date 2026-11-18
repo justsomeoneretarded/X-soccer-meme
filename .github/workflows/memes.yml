@@ -28,9 +28,23 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/python-runtime
-      - name: Check video tools
-        run: ffmpeg -version > /dev/null
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install parser for preview
+        if: inputs.check_ai || (github.event_name == 'workflow_dispatch' && !inputs.live)
+        run: timeout 90s python -m pip install --timeout 15 --retries 2 "$(sed -n '/^beautifulsoup4==/p' requirements.txt)"
+      - name: Install dependencies for publishing
+        if: github.event_name == 'schedule' || (inputs.live && !inputs.check_ai)
+        run: timeout 90s python -m pip install --timeout 15 --retries 2 -r requirements.txt
+      - name: Prepare optional Reddit audio support
+        if: github.event_name == 'schedule' || (inputs.live && !inputs.check_ai)
+        continue-on-error: true
+        run: |
+          if python -c 'import json, sys; sys.exit(not json.load(open("sources.json"))["reddit"])' && ! command -v ffmpeg >/dev/null; then
+            sudo timeout 60s apt-get -o Acquire::Retries=1 update
+            sudo timeout 90s apt-get -o Acquire::Retries=1 install -y --no-install-recommends ffmpeg
+          fi
       - name: Collect if due, then preview or post one meme
         env:
           TWEETKIT_COOKIE: ${{ (inputs.live || github.event_name == 'schedule') && secrets.TWEETKIT_COOKIE || '' }}
@@ -46,11 +60,11 @@ jobs:
           CHECK_AI: ${{ inputs.check_ai }}
         shell: bash
         run: |
-          if [[ "$CHECK_AI" == "true" ]]; then exec .local/runtime/bin/python meme_worker.py --mode check-ai; fi
+          if [[ "$CHECK_AI" == "true" ]]; then exec python meme_worker.py --mode check-ai; fi
           args=(--mode auto)
           if [[ "$LIVE" == "true" ]]; then args+=(--live); fi
           if [[ "$INITIALIZE" == "true" ]]; then args+=(--initialize); fi
-          .local/runtime/bin/python meme_worker.py "${args[@]}"
+          python meme_worker.py "${args[@]}"
       - name: Save result
         if: always()
         uses: actions/upload-artifact@v4

@@ -54,5 +54,5 @@ python -m venv .local/runtime
 .local/runtime/bin/python -m unittest discover -s tests -v
 ```
 
-Full video support requires FFmpeg and FFprobe. The Actions runner includes
-them through the runtime setup step.
+Reddit clips with separate audio require FFmpeg. Live Actions runs prepare it
+when Reddit sources are configured. Telegram MP4s use the original video.
