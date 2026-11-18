@@ -5,7 +5,7 @@ match reactions, club banter and fan humor, then previews or posts one
 approved photo or video per run.
 
 - Collects approved public Telegram channels or Reddit communities in
-  `sources.json`. Both lists start empty. Enable a source only after you
+  `sources.json`. The Telegram list contains the supplied channels. Enable a source only after you
   have permission to reuse the media you plan to post. Public previews
   and community membership give you a way to browse the content.
 - Expires candidates eight hours after the source post and gives new items
@@ -21,16 +21,16 @@ approved photo or video per run.
 - Saves reservations to this repo's own `autopost-state` branch before
   publishing. Unconfirmed sends are set aside and never automatically retried.
 
-## Channels to review
+## Configured sources
 
-| Telegram channel | What the public preview showed on November 18, 2026 |
-| --- | --- |
-| [Football memes](https://t.me/s/soccer_memes) | Best English-language fit. 18 downloadable media items in its recent preview. |
-| [Troll Football](https://t.me/s/trollfootball) | Recent soccer media with mostly Persian captions in the sample. |
-| [Funny Soccer](https://t.me/s/funnysoccer) | Recent soccer media with Persian captions in the sample. |
-
-These are discovery leads. Review reuse permissions for each source and
-its individual media before adding it to the posting configuration.
+The November 18 audit found recent downloadable media from
+[`soccer_memes`](https://t.me/s/soccer_memes),
+[`Football_FunTroll`](https://t.me/s/Football_FunTroll) and
+[`FootballMemesBanter`](https://t.me/s/FootballMemesBanter).
+`trollingfootball` exposed older media. `Troll_Football_Telegram`,
+`troll_footy` and `FOOTYMEMES_Comments` had no usable media during the check.
+All supplied handles are in the configuration, so a channel can contribute
+when a fresh public post becomes available.
 
 ## Preview and go live
 
