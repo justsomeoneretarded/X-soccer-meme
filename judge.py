@@ -18,6 +18,7 @@ GEMINI_TIMEOUT = int(os.environ.get('GEMINI_TIMEOUT', '30'))
 GEMINI_THINKING = ({'thinkingLevel': 'low'}, {'thinkingBudget': 0}, None)
 GROQ_VISION = (
     'qwen/qwen3.8-27b',
+    'qwen/qwen3.6-27b',
     'meta-llama/llama-4-scout-17b-16e-instruct',
     'meta-llama/llama-4-maverick-17b-128e-instruct',
 )
