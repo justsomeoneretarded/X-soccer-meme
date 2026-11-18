@@ -1,0 +1,10 @@
+{
+  "telegram": [],
+  "reddit": [],
+  "collection_seconds": 600,
+  "posting_seconds": 600,
+  "source_max_age_hours": 8,
+  "queue_max_age_hours": 8,
+  "reddit_min_score": 5,
+  "reddit_min_upvote_ratio": 0.75
+}

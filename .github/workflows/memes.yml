@@ -1,0 +1,61 @@
+name: Soccer memes
+on:
+  schedule:
+    - cron: '7-59/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      live:
+        description: 'Publish at most ONE meme (off = preview)'
+        type: boolean
+        default: false
+      initialize:
+        description: 'Create isolated posting history (first run only)'
+        type: boolean
+        default: false
+      check_ai:
+        description: 'Only test the AI keys/models (no collection, no posting)'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: soccer-meme-posting
+  cancel-in-progress: false
+jobs:
+  memes:
+    if: github.event_name == 'workflow_dispatch' || vars.AUTO_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/python-runtime
+      - name: Check video tools
+        run: ffmpeg -version > /dev/null
+      - name: Collect if due, then preview or post one meme
+        env:
+          TWEETKIT_COOKIE: ${{ (inputs.live || github.event_name == 'schedule') && secrets.TWEETKIT_COOKIE || '' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.5-flash' }}
+          AI_PROVIDER_ORDER: ${{ vars.AI_PROVIDER_ORDER || 'gemini,groq' }}
+          MIN_SCORE: ${{ vars.MIN_SCORE || '70' }}
+          DAILY_LIMIT: ${{ vars.DAILY_LIMIT || '0' }}
+          TRENDING_DB: ${{ github.workspace }}/.local/actions/memes.db
+          LIVE: ${{ (inputs.live || github.event_name == 'schedule') }}
+          INITIALIZE: ${{ inputs.initialize }}
+          CHECK_AI: ${{ inputs.check_ai }}
+        shell: bash
+        run: |
+          if [[ "$CHECK_AI" == "true" ]]; then exec .local/runtime/bin/python meme_worker.py --mode check-ai; fi
+          args=(--mode auto)
+          if [[ "$LIVE" == "true" ]]; then args+=(--live); fi
+          if [[ "$INITIALIZE" == "true" ]]; then args+=(--initialize); fi
+          .local/runtime/bin/python meme_worker.py "${args[@]}"
+      - name: Save result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meme-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: posting-report.json
+          if-no-files-found: ignore
+          retention-days: 7
