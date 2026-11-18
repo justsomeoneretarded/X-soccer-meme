@@ -288,7 +288,12 @@ def check_ai():
     import struct,zlib
     def chunk(kind,data):
         return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data)&0xffffffff)
-    pixel=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',8,8,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(b''.join(b'\x00'+b'\xff\xcc\x00'*8 for _ in range(8))))+chunk(b'IEND',b'')
+    size = 64  # The vision providers require a minimum image size.
+    scanline = b'\x00' + b'\xff\xcc\x00' * size
+    pixel = (b'\x89PNG\r\n\x1a\n'
+             + chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 2, 0, 0, 0))
+             + chunk(b'IDAT', zlib.compress(scanline * size))
+             + chunk(b'IEND', b''))
     report={}
     for name in ('gemini','groq'):
         if not os.environ.get(name.upper()+'_API_KEY'):
