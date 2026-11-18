@@ -159,9 +159,9 @@ class PublishTests(Case):
 class JudgeTests(unittest.TestCase):
     def setUp(self):
         judge._gemini.update(model=None, thinking=None, down=False, discovered=False, bad=set())
-        judge._groq.update(model=None, listed=None)
+        judge._groq.update(model=None, listed=None, bad=set())
         self.addCleanup(lambda: (judge._gemini.update(model=None, thinking=None, down=False, discovered=False, bad=set()),
-                                 judge._groq.update(model=None, listed=None)))
+                                 judge._groq.update(model=None, listed=None, bad=set())))
 
     def test_caption_rules_enforced_locally(self):
         self.assertEqual(judge.clean_caption('"me at 3am 😭😭 #relatable @someone https://x.co/a"'), 'me at 3am 😭')
@@ -171,27 +171,37 @@ class JudgeTests(unittest.TestCase):
         seen = []
         def request(url, headers, body=None, timeout=60):
             seen.append(url)
-            if 'gemini-3.5-flash:' in url:
+            if 'gemini-3.5-flash-lite:' in url:
                 raise judge.HTTPFailure(503, 'HTTP 503 high demand')
             self.assertIn('inline_data', body['contents'][0]['parts'][0])
             return {'candidates': [{'content': {'parts': [{'text': json.dumps({'post': True, 'virality': 8, 'caption': 'lol'})}]}}]}
-        with patch.dict('os.environ', {'GEMINI_API_KEY': 'k', 'GROQ_API_KEY': ''}), patch('judge._request', side_effect=request):
+        with patch.dict('os.environ', {'GEMINI_API_KEY': 'k', 'GROQ_API_KEY': ''}), patch('judge._request', side_effect=request), patch.object(judge, 'GEMINI_MODEL', 'gemini-3.5-flash-lite'):
             result = judge.judge(b'\xff\xd8\xffimg', 'orig')
         self.assertEqual((result['virality'], result['caption'], result['provider']), (8, 'lol', 'gemini'))
-        self.assertEqual(judge.remembered()['gemini_model'], 'gemini-3.6-flash')
+        self.assertIn('gemini-3.5-flash-lite:', seen[0])
+        self.assertEqual(judge.remembered()['gemini_model'], 'gemini-3.5-flash')
 
     def test_groq_vision_fallback(self):
         def request(url, headers, body=None, timeout=60):
             if url.endswith('/models'):
                 return {'data': [{'id': 'llama-3.3-70b-versatile'}, {'id': 'meta-llama/llama-4-maverick-17b-128e-instruct'}]}
             if body['model'] == judge.GROQ_VISION[0]:
-                raise judge.HTTPFailure(404, 'HTTP 404 decommissioned')
+                self.fail('An unlisted Groq model was called')
             self.assertEqual(body['messages'][1]['content'][1]['type'], 'image_url')
             return {'choices': [{'message': {'content': '{"post": false, "virality": 3, "caption": ""}'}}]}
         with patch.dict('os.environ', {'GEMINI_API_KEY': '', 'GROQ_API_KEY': 'k'}), patch('judge._request', side_effect=request):
             result = judge.judge(b'\x89PNGimg', '')
         self.assertFalse(result['post'])
         self.assertEqual(judge._groq['model'], 'meta-llama/llama-4-maverick-17b-128e-instruct')
+
+
+    def test_groq_without_vision_models_never_calls_chat(self):
+        catalogue = {'data': [{'id': 'llama-3.3-70b-versatile'}]}
+        with patch.dict('os.environ', {'GROQ_API_KEY': 'k'}), patch('judge._request', return_value=catalogue) as request:
+            for _ in range(2):
+                with self.assertRaisesRegex(judge.JudgeUnavailable, 'no listed vision models'):
+                    judge.groq('prompt', b'image')
+        request.assert_called_once()
 
 
 class LearningTests(Case):

@@ -13,6 +13,8 @@ approved photo or video per run.
   ranking. Reddit retrieval uses its newest listing and can be blocked on
   cloud runners.
 - Requires a positive Gemini or Groq vision verdict plus a minimum score.
+  Gemini starts with Flash-Lite. Groq fallback uses the vision models
+  available to its configured key.
   The judge rejects unrelated media, plain footage, betting promotions and
   abusive content. Video screening uses a still and caption. Choose feeds
   you trust to supply authorized, suitable full clips and audio.

@@ -12,8 +12,8 @@ import re
 import urllib.error
 import urllib.request
 
-GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.5-flash')
-GEMINI_FALLBACKS = ('gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL') or 'gemini-3.5-flash-lite'
+GEMINI_FALLBACKS = ('gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash')
 GEMINI_TIMEOUT = int(os.environ.get('GEMINI_TIMEOUT', '30'))
 GEMINI_THINKING = ({'thinkingLevel': 'low'}, {'thinkingBudget': 0}, None)
 GROQ_VISION = ('meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct')
@@ -60,7 +60,7 @@ class HTTPFailure(JudgeUnavailable):
 
 
 _gemini = {'model': None, 'thinking': None, 'down': False, 'discovered': False, 'bad': set()}
-_groq = {'model': None, 'listed': None}
+_groq = {'model': None, 'listed': None, 'bad': set()}
 
 
 def available():
@@ -114,12 +114,12 @@ def gemini(prompt, image):
         raise JudgeUnavailable('no Gemini key')
     if _gemini['down']:
         raise JudgeUnavailable('Gemini skipped after earlier failures in this run')
-    models = [m for m in dict.fromkeys([_gemini['model'] or GEMINI_MODEL, GEMINI_MODEL, *GEMINI_FALLBACKS]) if m not in _gemini['bad']]
+    models = [m for m in dict.fromkeys([GEMINI_MODEL, _gemini['model'] or GEMINI_MODEL, *GEMINI_FALLBACKS]) if m not in _gemini['bad']]
     last = 'no usable Gemini model'
     parts = [{'inline_data': {'mime_type': mime(image), 'data': base64.b64encode(image).decode()}}, {'text': prompt}]
     while models:
         model = models.pop(0)
-        options = [_gemini['thinking']] if model == _gemini['model'] else list(GEMINI_THINKING)
+        options = [_gemini['thinking']] if model == _gemini['model'] else (list(GEMINI_THINKING) if model.startswith('gemini-3') else [{'thinkingBudget': 0}, None])
         failed = False
         for option in options:
             config = {'temperature': 0.7, 'maxOutputTokens': 2048, 'responseMimeType': 'application/json', 'responseSchema': SCHEMA}
@@ -172,36 +172,33 @@ def groq(prompt, image):
     key = os.environ.get('GROQ_API_KEY')
     if not key:
         raise JudgeUnavailable('no Groq key')
-    models = [_groq['model'] or GROQ_VISION[0]]
-    tried = set()
-    url = 'data:%s;base64,%s' % (mime(image), base64.b64encode(image).decode())
-    while models:
-        model = models.pop(0)
-        if model in tried:
-            continue
-        tried.add(model)
+    if _groq['listed'] is None:
+        _groq['listed'] = groq_models(key)
+    if not _groq['listed']:
+        raise JudgeUnavailable('Groq key has no listed vision models')
+    models = list(_groq['listed'])
+    if _groq['model'] in models:
+        models.remove(_groq['model'])
+        models.insert(0, _groq['model'])
+    models = [model for model in models if model not in _groq['bad']][:3]
+    image_url = 'data:%s;base64,%s' % (mime(image), base64.b64encode(image).decode())
+    last = 'no usable Groq vision model'
+    for model in models:
         try:
             data = _request('https://api.groq.com/openai/v1/chat/completions', {'Authorization': 'Bearer '+key}, {
                 'model': model, 'temperature': 0.7, 'response_format': {'type': 'json_object'},
                 'messages': [{'role': 'system', 'content': SYSTEM},
                              {'role': 'user', 'content': [{'type': 'text', 'text': prompt},
-                                                          {'type': 'image_url', 'image_url': {'url': url}}]}]})
-        except HTTPFailure as error:
-            if error.status in (400, 404, 429) and len(tried) <= 3:
-                if _groq['listed'] is None:
-                    _groq['listed'] = groq_models(key)
-                models.extend(m for m in _groq['listed'] if m not in tried and m not in models)
-                del models[3:]
-                if models:
-                    continue
-            raise
-        try:
+                                                          {'type': 'image_url', 'image_url': {'url': image_url}}]}]},
+                timeout=20)
             text = data['choices'][0]['message']['content']
-        except (KeyError, IndexError, TypeError):
-            raise JudgeUnavailable('empty Groq response') from None
+        except (JudgeUnavailable, KeyError, IndexError, TypeError) as error:
+            last = str(error) if isinstance(error, JudgeUnavailable) else 'empty Groq response'
+            _groq['bad'].add(model)
+            continue
         _groq['model'] = model
         return text
-    raise JudgeUnavailable('no usable Groq vision model')
+    raise JudgeUnavailable(last)
 
 
 def _json(text):

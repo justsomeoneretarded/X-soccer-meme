@@ -50,7 +50,7 @@ jobs:
           TWEETKIT_COOKIE: ${{ (inputs.live || github.event_name == 'schedule') && secrets.TWEETKIT_COOKIE || '' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.5-flash' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           AI_PROVIDER_ORDER: ${{ vars.AI_PROVIDER_ORDER || 'gemini,groq' }}
           MIN_SCORE: ${{ vars.MIN_SCORE || '70' }}
           DAILY_LIMIT: ${{ vars.DAILY_LIMIT || '0' }}
